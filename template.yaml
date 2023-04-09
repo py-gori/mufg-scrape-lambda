@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  mufg-scrape-lambda
+
+  Sample SAM Template for mufg-scrape-lambda
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 300
+
+Parameters:
+  MufgUid:
+    Type: String
+  MufgPass:
+    Type: String
+  S3Bucket:
+    Type: String
+
+Resources:
+  MufgScrapeFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: mufg_scrape/
+      Handler: app.handler
+      Runtime: python3.7
+      Architectures:
+        - x86_64
+      MemorySize: 512
+      Events:
+#        ScrapeStartEvent:
+#          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+#          Properties:
+#            Path: /
+#            Method: get
+        ScrapeStartSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'cron(0 23 ? * 1 *)' # UTC timezone
+            Name: WeeklySchedule
+            Description: test schedule
+            Enabled: true
+      Environment:
+        Variables:
+          MUFG_UID: !Ref MufgUid
+          MUFG_PASSWORD: !Ref MufgPass
+          S3_BUCKET: !Ref S3Bucket
+      Layers:
+        - !Ref SeleniumLayer
+        - !Ref HeadlessLayer
+      Policies:
+        - S3CrudPolicy:
+            BucketName: "prd-selenium-bucket"
+
+  SeleniumLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: selenium
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+  HeadlessLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: headless
+      CompatibleRuntimes:
+        - python3.7
+    Metadata:
+      BuildMethod: python3.7
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+#  MufgScrapeApi:
+#    Description: "API Gateway endpoint URL for Prod stage for Mufg Scrape function"
+#    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+  MufgScrapeFunction:
+    Description: "Mufg Scrape Lambda Function ARN"
+    Value: !GetAtt MufgScrapeFunction.Arn
+  MufgScrapeFunctionIamRole:
+    Description: "Implicit IAM Role created for Mufg Scrape function"
+    Value: !GetAtt MufgScrapeFunctionRole.Arn
