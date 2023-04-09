@@ -51,7 +51,7 @@ Resources:
         - !Ref HeadlessLayer
       Policies:
         - S3CrudPolicy:
-            BucketName: "prd-selenium-bucket"
+            BucketName: !Ref S3Bucket
 
   SeleniumLayer:
     Type: AWS::Serverless::LayerVersion
