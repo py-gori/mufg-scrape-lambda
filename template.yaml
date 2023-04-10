@@ -15,18 +15,26 @@ Parameters:
     Type: String
   MufgPass:
     Type: String
+  LineToken:
+    Type: String
   S3Bucket:
     Type: String
+  Prefix:
+    Type: String
+    Default: top_page
 
 Resources:
+  HtmlBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3Bucket
+
   MufgScrapeFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: mufg_scrape/
       Handler: app.handler
       Runtime: python3.7
-      Architectures:
-        - x86_64
       MemorySize: 512
       Events:
         ScrapeStartSchedule:
@@ -44,10 +52,10 @@ Resources:
       Layers:
         - !Ref SeleniumLayer
         - !Ref HeadlessLayer
-      Role: !GetAtt LambdaIAMRole.Arn
-#      Policies:
-#        - S3CrudPolicy:
-#            BucketName: !Ref S3Bucket
+#      Role: !GetAtt LambdaIAMRole.Arn
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref S3Bucket
 
   SeleniumLayer:
     Type: AWS::Serverless::LayerVersion
@@ -67,35 +75,32 @@ Resources:
     Metadata:
       BuildMethod: python3.7
 
-  LambdaIAMRole:
-    Type: 'AWS::IAM::Role'
+  MufgNotificationFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      Path: /
+      CodeUri: mufg_notification/
+      Handler: app.handler
+      Runtime: python3.7
+      MemorySize: 512
+#      Role: !GetAtt LambdaIAMRole.Arn
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref HtmlBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: !Ref Prefix
+      Environment:
+        Variables:
+          LINE_TOKEN: !Ref LineToken
+          S3_BUCKET: !Ref S3Bucket
       Policies:
-        - PolicyName: root
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 's3:GetBucketNotification'
-                  - 's3:PutBucketNotification'
-                Resource: !Sub 'arn:aws:s3:::${S3Bucket}'
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: 'arn:aws:logs:*:*:*'
+        - S3ReadPolicy:
+            BucketName: !Ref S3Bucket
 
 #Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
