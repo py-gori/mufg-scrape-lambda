@@ -4,6 +4,7 @@ events/
 venv/
 headless/*
 selenium/*
+__pycache__/
 
 samconfig.toml
 !.gitkeep

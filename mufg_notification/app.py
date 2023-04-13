@@ -85,7 +85,7 @@ def make_message(data) -> str:
     return message
 
 
-def send_line(message) -> None:
+def send_line(message) -> bool:
     payload = {'message': message}
     token = os.environ.get('LINE_TOKEN')
     r = requests.post(
@@ -96,6 +96,7 @@ def send_line(message) -> None:
     if not r.ok:
         raise Exception(f'LINE send failed. result={r.text}')
     logger.info('LINE send. result=%s', r)
+    return r.ok
 
 
 def handler(event, context) -> dict:
